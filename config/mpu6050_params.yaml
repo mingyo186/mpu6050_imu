@@ -1,0 +1,25 @@
+mpu6050_imu_node:
+  ros__parameters:
+    # ── Fake Mode ──────────────────────────────────────
+    fake_mode: true             # true: random data, false: real I2C
+
+    # ── I2C Settings ────────────────────────────────────
+    i2c_bus: 1                  # /dev/i2c-1
+    device_address: 0x68        # MPU6050 default (AD0=LOW), 0x69 if AD0=HIGH
+
+    # ── Publish Rate ────────────────────────────────────
+    publish_rate: 50.0          # Hz
+
+    # ── TF Frame ────────────────────────────────────────
+    frame_id: "imu_link"
+
+    # ── Full-Scale Range ────────────────────────────────
+    #   accel_range: 0=±2g  1=±4g   2=±8g   3=±16g
+    #   gyro_range:  0=±250 1=±500  2=±1000 3=±2000 (°/s)
+    accel_range: 0
+    gyro_range: 0
+
+    # ── Covariance (diagonal) ──────────────────────────
+    #   Tune these based on your sensor's actual noise.
+    accel_covariance: 0.04      # m²/s⁴
+    gyro_covariance: 0.02       # rad²/s²
