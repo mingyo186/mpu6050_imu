@@ -93,7 +93,7 @@ mpu6050_imu/
 
 ## TODO
 
-- [ ] BMP280 — barometric pressure + temperature sensor
+- [x] BMP280 — barometric pressure + temperature sensor
 - [ ] BNO055 — 9-axis absolute orientation IMU
 - [ ] HMC5883L — 3-axis digital compass
 - [ ] VL53L0X — ToF (Time-of-Flight) distance sensor
