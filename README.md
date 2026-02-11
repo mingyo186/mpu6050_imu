@@ -74,6 +74,13 @@ ros2 topic echo /imu/data_raw
 | `accel_covariance` | double | `0.04` | Diagonal acceleration covariance (m²/s⁴) |
 | `gyro_covariance` | double | `0.02` | Diagonal angular velocity covariance (rad²/s²) |
 
+## Services
+
+| Service | Type | Description |
+|---|---|---|
+| `imu/calibrate` | `std_srvs/Trigger` | Collect gyro data for 2 seconds and compute bias offset |
+| `imu/reset` | `std_srvs/Trigger` | Clear bias and reinitialize the sensor |
+
 ## Package Structure
 
 ```
@@ -87,17 +94,32 @@ mpu6050_imu/
 ├── mpu6050_imu/
 │   ├── __init__.py
 │   └── mpu6050_driver.py
-└── nodes/
-    └── mpu6050_node.py
+├── nodes/
+│   └── mpu6050_node.py
+└── test/
+    └── test_mpu6050_node.py
 ```
 
-## TODO
+## Test Results
 
-- [x] BMP280 — barometric pressure + temperature sensor
-- [x] BNO055 — 9-axis absolute orientation IMU
-- [x] HMC5883L — 3-axis digital compass
-- [x] VL53L0X — ToF (Time-of-Flight) distance sensor
-- [x] ADS1115 — 16-bit ADC for analog sensors
+Tested on Ubuntu 24.04 (WSL2) with `fake_mode: true`.
+
+```
+$ colcon test --packages-select mpu6050_imu
+$ colcon test-result --verbose
+Summary: 27 tests, 0 errors, 0 failures, 0 skipped
+```
+
+| Test Category | Test | Result |
+|---|---|---|
+| **Topics** | `imu/data_raw` publishes `sensor_msgs/Imu` | PASS |
+| **Topics** | `frame_id == "imu_link"` | PASS |
+| **Topics** | `orientation_covariance[0] == -1.0` (no fusion) | PASS |
+| **Services** | `imu/calibrate` returns `success=True` | PASS |
+| **Services** | `imu/reset` returns `success=True` | PASS |
+| **Parameters** | `publish_rate` runtime change to 20.0 Hz | PASS |
+| **Shutdown** | Clean exit (code 0, -2, or -15) | PASS |
+| **Linting** | pep257, flake8, copyright, xmllint | PASS |
 
 ## License
 
