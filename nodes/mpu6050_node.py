@@ -1,67 +1,73 @@
 #!/usr/bin/env python3
+# Copyright 2025 The mpu6050_imu Authors
+#
+# Use of this source code is governed by an MIT-style
+# license that can be found in the LICENSE file or at
+# https://opensource.org/licenses/MIT.
 """ROS2 node that reads MPU6050 over I2C and publishes sensor_msgs/Imu."""
 
 import time
-import threading
 
+from mpu6050_imu.mpu6050_driver import FakeMPU6050Driver, MPU6050Driver
+from rcl_interfaces.msg import SetParametersResult
 import rclpy
 from rclpy.node import Node
-from rcl_interfaces.msg import SetParametersResult
 from sensor_msgs.msg import Imu
 from std_srvs.srv import Trigger
 
-from mpu6050_imu.mpu6050_driver import MPU6050Driver, FakeMPU6050Driver
-
 
 class MPU6050ImuNode(Node):
+    """ROS2 node for MPU6050 IMU sensor."""
+
     def __init__(self):
+        """Initialize the MPU6050 IMU node with parameters, driver, and services."""
         super().__init__('mpu6050_imu_node')
 
-        # ── Declare parameters ────────────────────────────────────
+        # Declare parameters
         self.declare_parameter('fake_mode', True)
         self.declare_parameter('i2c_bus', 1)
         self.declare_parameter('device_address', 0x68)
         self.declare_parameter('publish_rate', 50.0)
         self.declare_parameter('frame_id', 'imu_link')
-        self.declare_parameter('accel_range', 0)      # 0=±2g  1=±4g  2=±8g  3=±16g
-        self.declare_parameter('gyro_range', 0)        # 0=±250  1=±500  2=±1000  3=±2000 °/s
+        self.declare_parameter('accel_range', 0)
+        self.declare_parameter('gyro_range', 0)
         self.declare_parameter('accel_covariance', 0.04)
         self.declare_parameter('gyro_covariance', 0.02)
 
-        # ── Read parameters ───────────────────────────────────────
-        self.fake_mode  = self.get_parameter('fake_mode').value
-        self.bus_num    = self.get_parameter('i2c_bus').value
-        self.address    = self.get_parameter('device_address').value
-        rate            = self.get_parameter('publish_rate').value
-        self.frame_id   = self.get_parameter('frame_id').value
+        # Read parameters
+        self.fake_mode = self.get_parameter('fake_mode').value
+        self.bus_num = self.get_parameter('i2c_bus').value
+        self.address = self.get_parameter('device_address').value
+        rate = self.get_parameter('publish_rate').value
+        self.frame_id = self.get_parameter('frame_id').value
         self.accel_range = self.get_parameter('accel_range').value
-        self.gyro_range  = self.get_parameter('gyro_range').value
-        self.accel_cov  = self.get_parameter('accel_covariance').value
-        self.gyro_cov   = self.get_parameter('gyro_covariance').value
+        self.gyro_range = self.get_parameter('gyro_range').value
+        self.accel_cov = self.get_parameter('accel_covariance').value
+        self.gyro_cov = self.get_parameter('gyro_covariance').value
 
-        # ── Gyro bias (set by calibration) ────────────────────────
+        # Gyro bias (set by calibration)
         self.gyro_bias = [0.0, 0.0, 0.0]
 
-        # ── Initialise driver ─────────────────────────────────────
+        # Initialise driver
         self._init_driver()
 
-        # ── Publisher + timer ─────────────────────────────────────
+        # Publisher + timer
         self.pub = self.create_publisher(Imu, 'imu/data_raw', 10)
         self.timer = self.create_timer(1.0 / rate, self._timer_cb)
         self.get_logger().info(
             f'Publishing sensor_msgs/Imu on "imu/data_raw" @ {rate} Hz')
 
-        # ── Services ──────────────────────────────────────────────
+        # Services
         self.create_service(Trigger, 'imu/calibrate', self._calibrate_cb)
         self.create_service(Trigger, 'imu/reset', self._reset_cb)
         self.get_logger().info(
             'Services: "imu/calibrate", "imu/reset"')
 
-        # ── Parameter change callback ─────────────────────────────
+        # Parameter change callback
         self.add_on_set_parameters_callback(self._on_param_change)
 
-    # ── Driver init helper ───────────────────────────────────────
     def _init_driver(self):
+        """Initialize the MPU6050 driver in fake or real mode."""
         if self.fake_mode:
             self.driver = FakeMPU6050Driver()
             self.get_logger().info('FAKE MODE enabled — generating random IMU data')
@@ -78,8 +84,8 @@ class MPU6050ImuNode(Node):
                 self.get_logger().fatal(f'Failed to open MPU6050: {e}')
                 raise
 
-    # ── Timer callback ───────────────────────────────────────────
     def _timer_cb(self):
+        """Read sensor data and publish an Imu message."""
         try:
             (ax, ay, az), (gx, gy, gz), _ = self.driver.read_all()
         except OSError as e:
@@ -95,7 +101,7 @@ class MPU6050ImuNode(Node):
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.frame_id = self.frame_id
 
-        # Orientation is not estimated by the raw MPU6050 → mark unknown
+        # Orientation is not estimated by the raw MPU6050 -> mark unknown
         msg.orientation_covariance[0] = -1.0
 
         # Angular velocity (rad/s)
@@ -104,26 +110,26 @@ class MPU6050ImuNode(Node):
         msg.angular_velocity.z = gz
         gc = self.gyro_cov
         msg.angular_velocity_covariance = [
-            gc,  0.0, 0.0,
-            0.0, gc,  0.0,
+            gc, 0.0, 0.0,
+            0.0, gc, 0.0,
             0.0, 0.0, gc,
         ]
 
-        # Linear acceleration (m/s²)
+        # Linear acceleration (m/s^2)
         msg.linear_acceleration.x = ax
         msg.linear_acceleration.y = ay
         msg.linear_acceleration.z = az
         ac = self.accel_cov
         msg.linear_acceleration_covariance = [
-            ac,  0.0, 0.0,
-            0.0, ac,  0.0,
+            ac, 0.0, 0.0,
+            0.0, ac, 0.0,
             0.0, 0.0, ac,
         ]
 
         self.pub.publish(msg)
 
-    # ── Service: /imu/calibrate ──────────────────────────────────
     def _calibrate_cb(self, request, response):
+        """Handle calibrate service request by collecting gyro samples."""
         if self.fake_mode:
             response.success = True
             response.message = 'Calibration complete (fake)'
@@ -159,8 +165,8 @@ class MPU6050ImuNode(Node):
         self.get_logger().info(response.message)
         return response
 
-    # ── Service: /imu/reset ──────────────────────────────────────
     def _reset_cb(self, request, response):
+        """Handle reset service request by reinitializing the sensor."""
         self.gyro_bias = [0.0, 0.0, 0.0]
         self.driver.close()
         self._init_driver()
@@ -170,8 +176,8 @@ class MPU6050ImuNode(Node):
         self.get_logger().info(response.message)
         return response
 
-    # ── Runtime parameter change ─────────────────────────────────
     def _on_param_change(self, params):
+        """Handle runtime parameter changes such as publish_rate."""
         for param in params:
             if param.name == 'publish_rate':
                 new_rate = param.value
@@ -186,6 +192,7 @@ class MPU6050ImuNode(Node):
 
 
 def main(args=None):
+    """Entry point for the MPU6050 IMU node."""
     rclpy.init(args=args)
     node = MPU6050ImuNode()
     try:
@@ -195,7 +202,10 @@ def main(args=None):
     finally:
         node.driver.close()
         node.destroy_node()
-        rclpy.shutdown()
+        try:
+            rclpy.shutdown()
+        except Exception:
+            pass
 
 
 if __name__ == '__main__':
