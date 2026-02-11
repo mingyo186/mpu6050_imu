@@ -97,7 +97,7 @@ mpu6050_imu/
 - [x] BNO055 — 9-axis absolute orientation IMU
 - [x] HMC5883L — 3-axis digital compass
 - [x] VL53L0X — ToF (Time-of-Flight) distance sensor
-- [ ] ADS1115 — 16-bit ADC for analog sensors
+- [x] ADS1115 — 16-bit ADC for analog sensors
 
 ## License
 
